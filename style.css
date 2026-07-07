@@ -369,3 +369,39 @@ body {
   }
 }
 
+/* Contact Form */
+
+.form-box form{
+    display:flex;
+    flex-direction:column;
+    gap:1rem;
+}
+
+.form-box input,
+.form-box textarea{
+    width:100%;
+    padding:0.9rem 1rem;
+    border:1px solid #AFDCEC;
+    border-radius:8px;
+    font-size:0.95rem;
+    font-family:inherit;
+    box-sizing:border-box;
+    outline:none;
+    transition:0.3s;
+}
+
+.form-box input:focus,
+.form-box textarea:focus{
+    border-color:#6495ED;
+    box-shadow:0 0 8px rgba(100,149,237,0.25);
+}
+
+.form-box textarea{
+    resize:vertical;
+    min-height:150px;
+}
+
+.form-box button{
+    width:fit-content;
+    cursor:pointer;
+}

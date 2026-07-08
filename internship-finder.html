@@ -37,9 +37,69 @@
 
   <!-- Internship Recommendation Form -->
   <section class="section">
-    <div class="form-box-lg">
-      <!-- JotForm embed code -->
-      <script type="text/javascript" src="https://form.jotform.com/jsform/252466882865069"></script>
+    <div class="finder-shell">
+      <div class="finder-card">
+        <div class="finder-header">
+          <h2 class="subtitle">Find Your Best Fit</h2>
+          <p class="desc">
+            Share a few details about your background and we’ll recommend internships that best match your current skills.
+          </p>
+        </div>
+
+        <div class="stepper" aria-label="Form progress">
+          <div class="step-dot active" data-step-dot="1">1</div>
+          <div class="step-dot" data-step-dot="2">2</div>
+          <div class="step-dot" data-step-dot="3">3</div>
+          <div class="step-dot" data-step-dot="4">4</div>
+        </div>
+
+        <div class="step-indicator" id="stepIndicator">Step 1 of 4</div>
+
+        <form id="recommendationForm" novalidate>
+          <div class="step-panel active" data-step="1">
+            <label class="field-label" for="fullName">Full Name</label>
+            <input id="fullName" name="fullName" type="text" placeholder="Enter your full name" required>
+            <p class="field-hint">We’ll use your name in the recommendation summary.</p>
+          </div>
+
+          <div class="step-panel" data-step="2">
+            <label class="field-label" for="educationLevel">Education Level</label>
+            <select id="educationLevel" name="educationLevel" required>
+              <option value="">Choose your education level</option>
+              <option>In School (12th Grade or Less)</option>
+              <option>In College (Pursuing a Degree)</option>
+              <option>Graduated (Have a Degree)</option>
+            </select>
+          </div>
+
+          <div class="step-panel" data-step="3">
+            <label class="field-label">Skills</label>
+            <div id="skillGrid" class="skill-grid" role="group" aria-label="Select your skills"></div>
+            <p class="field-hint">Choose the skills that best describe you right now.</p>
+            <div id="otherSkillsWrap" class="input-group hidden">
+              <label class="field-label" for="otherSkills">Tell us more about your other skills</label>
+              <textarea id="otherSkills" name="otherSkills" rows="4" placeholder="Describe your skills in a few words..."></textarea>
+            </div>
+          </div>
+
+          <div class="step-panel" data-step="4">
+            <div class="summary-card">
+              <h3 class="card-title">Review Your Details</h3>
+              <p class="summary-line"><strong>Name:</strong> <span id="summaryName">—</span></p>
+              <p class="summary-line"><strong>Education:</strong> <span id="summaryEducation">—</span></p>
+              <p class="summary-line"><strong>Skills:</strong> <span id="summarySkills">—</span></p>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button type="button" class="btn-secondary" id="prevBtn">Previous</button>
+            <button type="button" class="btn-primary" id="nextBtn">Next</button>
+            <button type="submit" class="btn-primary hidden" id="submitBtn">Get Recommendations</button>
+          </div>
+        </form>
+
+        <div id="resultsPanel" class="results-panel hidden" aria-live="polite"></div>
+      </div>
     </div>
   </section>
 
@@ -47,6 +107,348 @@
   <footer class="footer">
     © 2026 AI Intern 
   </footer>
+
+  <script>
+    const skillOptions = [
+      'Python',
+      'C/C++',
+      'JavaScript',
+      'Frontend (HTML, CSS)',
+      'Backend',
+      'React.js',
+      'Databases',
+      'Excel / Data Analysis',
+      'Communication',
+      'Creative Writing',
+      'Marketing',
+      'Accounting',
+      'Mechanical Tools',
+      'Problem Solving',
+      'Design (Canva / Photoshop)',
+      'None',
+      'Other'
+    ];
+
+    const skillAliases = {
+      'Python': ['python', 'data analysis (python)'],
+      'C/C++': ['c/c++', 'c++', 'c'],
+      'JavaScript': ['javascript', 'js'],
+      'Frontend (HTML, CSS)': ['frontend', 'html', 'css', 'html/css', 'ui'],
+      'Backend': ['backend', 'server', 'api'],
+      'React.js': ['react', 'react.js'],
+      'Databases': ['database', 'databases', 'sql'],
+      'Excel / Data Analysis': ['excel', 'data analysis', 'data analytics', 'tableau', 'power bi', 'analytics'],
+      'Communication': ['communication', 'storytelling', 'presentation', 'stakeholder communication', 'customer service'],
+      'Creative Writing': ['creative writing', 'report writing', 'documentation', 'storyboarding', 'content creation'],
+      'Marketing': ['marketing', 'digital marketing', 'social media', 'merchandising', 'sales', 'business development'],
+      'Accounting': ['accounting', 'financial modelling', 'financial analysis', 'finance'],
+      'Mechanical Tools': ['mechanical', 'cad', 'solidworks', 'autocad', 'machinery', 'maintenance', 'manufacturing', 'process control'],
+      'Problem Solving': ['problem solving', 'lean', 'six sigma', 'process improvement', 'research', 'project management'],
+      'Design (Canva / Photoshop)': ['design', 'canva', 'photoshop', 'figma', 'sketching', 'presentation']
+    };
+
+    const state = {
+      currentStep: 1,
+      selectedSkills: []
+    };
+
+    const form = document.getElementById('recommendationForm');
+    const stepPanels = Array.from(document.querySelectorAll('.step-panel'));
+    const stepDots = Array.from(document.querySelectorAll('.step-dot'));
+    const stepIndicator = document.getElementById('stepIndicator');
+    const nextBtn = document.getElementById('nextBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultsPanel = document.getElementById('resultsPanel');
+    const otherSkillsWrap = document.getElementById('otherSkillsWrap');
+    const skillGrid = document.getElementById('skillGrid');
+    const summaryName = document.getElementById('summaryName');
+    const summaryEducation = document.getElementById('summaryEducation');
+    const summarySkills = document.getElementById('summarySkills');
+
+    function normalizeText(value) {
+      return String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function parseCsv(text) {
+      const lines = text.trim().split(/\r?\n/).filter(Boolean);
+      return lines.slice(1).map((line) => {
+        const match = line.match(/^([^,]+),([^,]+),(.*)$/);
+        if (!match) return null;
+        return {
+          role: match[1].trim(),
+          skills: match[2].trim(),
+          links: match[3].trim()
+        };
+      }).filter(Boolean);
+    }
+
+    function inferCategory(role) {
+      const text = role.toLowerCase();
+      if (text.includes('software') || text.includes('data') || text.includes('tech') || text.includes('engineering') || text.includes('network') || text.includes('it')) return 'IT & Software Development';
+      if (text.includes('automotive') || text.includes('engine') || text.includes('aerospace') || text.includes('aviation') || text.includes('defence')) return 'Automotive';
+      if (text.includes('manufacturing') || text.includes('plant') || text.includes('production') || text.includes('quality') || text.includes('maintenance')) return 'Manufacturing & Industrial';
+      if (text.includes('media') || text.includes('content') || text.includes('video') || text.includes('audio') || text.includes('design')) return 'Media & Entertainment';
+      if (text.includes('bank') || text.includes('finance') || text.includes('account') || text.includes('risk') || text.includes('investment')) return 'Banking & Financial Services';
+      if (text.includes('retail') || text.includes('sales') || text.includes('merch') || text.includes('e-commerce') || text.includes('brand')) return 'Retail & Consumer Durables';
+      if (text.includes('telecom') || text.includes('network')) return 'Telecom';
+      if (text.includes('education') || text.includes('instructional')) return 'Education';
+      if (text.includes('hotel') || text.includes('tourism') || text.includes('travel') || text.includes('hospitality')) return 'Travel & Hospitality';
+      if (text.includes('health') || text.includes('clinical') || text.includes('pharma')) return 'Healthcare';
+      if (text.includes('construction') || text.includes('site') || text.includes('real estate') || text.includes('housing') || text.includes('infrastructure')) return 'Infrastructure & Construction';
+      if (text.includes('oil') || text.includes('gas') || text.includes('energy')) return 'Oil, Gas & Energy';
+      if (text.includes('mining') || text.includes('metall') || text.includes('metal')) return 'Metals & Mining';
+      if (text.includes('textile')) return 'Textile Manufacturing';
+      if (text.includes('sport')) return 'Sports';
+      if (text.includes('agri') || text.includes('agriculture') || text.includes('farm')) return 'Agriculture & Allied';
+      return 'Consulting Services';
+    }
+
+    async function loadInternships() {
+      try {
+        const response = await fetch('internships.csv');
+        if (!response.ok) throw new Error('CSV unavailable');
+        const text = await response.text();
+        return parseCsv(text).map((item) => ({
+          name: item.role,
+          category: inferCategory(item.role),
+          requiredSkills: item.skills.split(';').map((skill) => skill.trim()).filter(Boolean),
+          location: 'India / Hybrid',
+          stipend: '₹4,500+',
+          description: `A practical internship opportunity in ${inferCategory(item.role).toLowerCase()}`
+        }));
+      } catch (error) {
+        console.warn('Falling back to built-in internships.', error);
+        return [
+          { name: 'Data Science Intern', category: 'IT & Software Development', requiredSkills: ['Python', 'SQL', 'Problem Solving'], location: 'India / Hybrid', stipend: '₹4,500+', description: 'Build real-world data analysis experience with practical projects.' },
+          { name: 'Software Engineering Intern', category: 'IT & Software Development', requiredSkills: ['JavaScript', 'Frontend (HTML, CSS)', 'Problem Solving'], location: 'India / Hybrid', stipend: '₹4,500+', description: 'Create user-facing experiences while learning modern web development tools.' },
+          { name: 'Marketing Intern', category: 'Retail & Consumer Durables', requiredSkills: ['Communication', 'Marketing', 'Creative Writing'], location: 'India / Hybrid', stipend: '₹4,500+', description: 'Support campaigns, content planning, and audience engagement work.' }
+        ];
+      }
+    }
+
+    function skillMatches(requiredSkill, selectedSkills) {
+      const required = normalizeText(requiredSkill);
+      return selectedSkills.some((skill) => {
+        const value = normalizeText(skill);
+        if (!value) return false;
+        const aliases = skillAliases[skill] || [];
+        return aliases.some((alias) => normalizeText(alias).includes(required) || required.includes(normalizeText(alias)) || required.includes(value));
+      });
+    }
+
+    function calculateMatch(internship, selectedSkills) {
+      const selected = selectedSkills.filter((skill) => skill !== 'Other' && skill !== 'None');
+      if (!selected.length) return 0;
+      const matches = internship.requiredSkills.filter((skill) => skillMatches(skill, selected)).length;
+      return Math.round((matches / internship.requiredSkills.length) * 100);
+    }
+
+    function renderSkillOptions() {
+      skillGrid.innerHTML = '';
+      skillOptions.forEach((skill) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'skill-chip';
+        button.textContent = skill;
+        button.dataset.value = skill;
+        button.addEventListener('click', () => toggleSkill(skill));
+        if (state.selectedSkills.includes(skill)) button.classList.add('selected');
+        skillGrid.appendChild(button);
+      });
+    }
+
+    function toggleSkill(skill) {
+      if (skill === 'None') {
+        state.selectedSkills = state.selectedSkills.includes('None') ? [] : ['None'];
+      } else if (skill === 'Other') {
+        if (state.selectedSkills.includes('Other')) {
+          state.selectedSkills = state.selectedSkills.filter((item) => item !== 'Other');
+        } else {
+          state.selectedSkills = state.selectedSkills.filter((item) => item !== 'None');
+          state.selectedSkills.push('Other');
+        }
+      } else {
+        if (state.selectedSkills.includes('None')) {
+          state.selectedSkills = state.selectedSkills.filter((item) => item !== 'None');
+        }
+        if (state.selectedSkills.includes(skill)) {
+          state.selectedSkills = state.selectedSkills.filter((item) => item !== skill);
+        } else {
+          state.selectedSkills.push(skill);
+        }
+      }
+      renderSkillOptions();
+      otherSkillsWrap.classList.toggle('hidden', !state.selectedSkills.includes('Other'));
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const fullName = document.getElementById('fullName').value.trim();
+      const educationLevel = document.getElementById('educationLevel').value;
+      summaryName.textContent = fullName || '—';
+      summaryEducation.textContent = educationLevel || '—';
+      summarySkills.textContent = state.selectedSkills.length ? state.selectedSkills.join(', ') : '—';
+    }
+
+    function updateStepUI() {
+      stepPanels.forEach((panel) => panel.classList.toggle('active', Number(panel.dataset.step) === state.currentStep));
+      stepDots.forEach((dot) => dot.classList.toggle('active', Number(dot.dataset.stepDot) === state.currentStep));
+      stepIndicator.textContent = `Step ${state.currentStep} of 4`;
+      prevBtn.classList.toggle('hidden', state.currentStep === 1);
+      nextBtn.classList.toggle('hidden', state.currentStep === 4);
+      submitBtn.classList.toggle('hidden', state.currentStep !== 4);
+      updateSummary();
+    }
+
+    function validateCurrentStep() {
+      if (state.currentStep === 1) {
+        const fullName = document.getElementById('fullName').value.trim();
+        if (!fullName) {
+          document.getElementById('fullName').focus();
+          return false;
+        }
+      }
+
+      if (state.currentStep === 2) {
+        const educationLevel = document.getElementById('educationLevel').value;
+        if (!educationLevel) {
+          document.getElementById('educationLevel').focus();
+          return false;
+        }
+      }
+
+      if (state.currentStep === 3) {
+        if (!state.selectedSkills.length) {
+          document.querySelector('.skill-grid').focus();
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    function goToNextStep() {
+      if (!validateCurrentStep()) return;
+      if (state.currentStep < 4) state.currentStep += 1;
+      updateStepUI();
+    }
+
+    function goToPreviousStep() {
+      if (state.currentStep > 1) state.currentStep -= 1;
+      updateStepUI();
+    }
+
+    function buildRecommendationCards(recommendations) {
+      return recommendations.map((item) => `
+        <article class="result-card">
+          <h3>${item.name}</h3>
+          <span class="match-pill">${item.match}% match</span>
+          <div class="progress-track">
+            <div class="progress-fill" style="width:${item.match}%"></div>
+          </div>
+          <p class="summary-line"><strong>Industry:</strong> ${item.category}</p>
+          <p class="summary-line"><strong>Location:</strong> ${item.location}</p>
+          <p class="summary-line"><strong>Monthly Stipend:</strong> ${item.stipend}</p>
+          <p class="summary-line"><strong>Skills Matched:</strong> ${item.matchedSkills.join(', ')}</p>
+          <p class="summary-line">${item.description}</p>
+        </article>
+      `).join('');
+    }
+
+    function renderResultCard(title, message, buttonLabel, buttonHref) {
+      resultsPanel.innerHTML = `
+        <div class="status-card">
+          <h3>${title}</h3>
+          <p>${message}</p>
+          ${buttonLabel ? `<a href="${buttonHref}" class="btn-primary">${buttonLabel}</a>` : ''}
+        </div>
+      `;
+      resultsPanel.classList.remove('hidden');
+    }
+
+    async function handleSubmit(event) {
+      event.preventDefault();
+      if (!validateCurrentStep()) return;
+
+      const fullName = document.getElementById('fullName').value.trim();
+      const educationLevel = document.getElementById('educationLevel').value;
+      const selectedSkills = [...state.selectedSkills];
+      const otherSkills = document.getElementById('otherSkills').value.trim();
+
+      if (educationLevel === 'In School (12th Grade or Less)') {
+        renderResultCard(
+          'Start with skill building first',
+          'Internships listed on AI Intern are intended for students who are already pursuing or completing higher education. Begin with practical learning first and then come back when you are ready.',
+          'Visit Skill Pathway',
+          'skill-pathway.html'
+        );
+        return;
+      }
+
+      if (selectedSkills.includes('None')) {
+        renderResultCard(
+          'You are just beginning your learning journey',
+          'That is completely fine. Start with a personalized learning roadmap from the AI Career Assistant and then return here when you are ready.',
+          'Visit Skill Pathway',
+          'skill-pathway.html'
+        );
+        return;
+      }
+
+      if (selectedSkills.includes('Other') || otherSkills) {
+        renderResultCard(
+          'Custom skill profile',
+          'Your skills need a personalized analysis. Visit the AI Career Assistant for a tailored roadmap and internship suggestions.',
+          'Visit Skill Pathway',
+          'skill-pathway.html'
+        );
+        return;
+      }
+
+      const internships = await loadInternships();
+      const recommendations = internships
+        .map((internship) => ({
+          ...internship,
+          match: calculateMatch(internship, selectedSkills),
+          matchedSkills: internship.requiredSkills.filter((skill) => skillMatches(skill, selectedSkills)).slice(0, 4)
+        }))
+        .filter((item) => item.match > 0)
+        .sort((a, b) => b.match - a.match)
+        .slice(0, 5);
+
+      if (!recommendations.length) {
+        renderResultCard(
+          'No direct match yet',
+          'Try selecting a few more relevant skills so we can surface stronger internship matches.',
+          'Visit Skill Pathway',
+          'skill-pathway.html'
+        );
+        return;
+      }
+
+      resultsPanel.innerHTML = `
+        <div class="status-card">
+          <h3>Hello, ${fullName || 'there'}!</h3>
+          <p>Based on your profile, here are your best internship matches.</p>
+        </div>
+        ${buildRecommendationCards(recommendations)}
+      `;
+      resultsPanel.classList.remove('hidden');
+    }
+
+    nextBtn.addEventListener('click', goToNextStep);
+    prevBtn.addEventListener('click', goToPreviousStep);
+    form.addEventListener('submit', handleSubmit);
+    document.getElementById('fullName').addEventListener('input', updateSummary);
+    document.getElementById('educationLevel').addEventListener('change', updateSummary);
+
+    renderSkillOptions();
+    updateStepUI();
+  </script>
 
 </body>
 </html>
